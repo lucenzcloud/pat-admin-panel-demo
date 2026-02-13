@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel Redesign Demo - Prior Authorization System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status-submitted { background: #FEF2CC80; color: #E27004; border: 1px solid #E27004; }
+        .status-under-review { background: #E6EEF8; color: #0052BD; border: 1px solid #0052BD; }
+        .status-approved { background: #D2E9D380; color: #115816; border: 1px solid #77BE7C; }
+        .status-denied { background: #F9D7D380; color: #E23822; border: 1px solid #EE887A; }
+        .status-pending-info { background: #FFF5E6; color: #CA7E02; border: 1px solid #FD9E02; }
+        .status-draft { background: #F4F5F7; color: #757C8D; border: 1px solid #BEC3D0; }
+
+        .priority-high { color: #E23822; font-weight: 600; }
+        .priority-medium { color: #E27004; font-weight: 500; }
+        .priority-low { color: #757C8D; font-weight: 400; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-active {
+            background: #1D1F23;
+            color: white;
+        }
+
+        .tab-inactive {
+            color: #757C8D;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        tbody tr:hover {
+            background-color: #F4F5F7;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #E6EEF8;
+            color: #0052BD;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #E9EBEF;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #E9EBEF;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-white border-b border-gray-200">
+        <div class="max-w-[1368px] mx-auto px-6 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-semibold text-gray-900">Welcome back, Sarah Johnson!</h1>
+                <p class="text-gray-600 mt-1">Here's your prior authorization work queue</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-sm font-medium text-gray-900">Sarah Johnson</p>
+                    <p class="text-xs text-gray-500">Admin</p>
+                </div>
+                <div class="user-avatar" style="width: 40px; height: 40px; font-size: 16px;">SJ</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-[1368px] mx-auto px-6 py-6 flex gap-6">
+        <!-- Sidebar -->
+        <div class="w-[240px] flex-shrink-0">
+            <div class="bg-white rounded-xl p-4">
+                <nav class="space-y-2">
+                    <a href="#" onclick="showTab('requests'); return false;"
+                       class="flex gap-2 p-3 rounded-xl items-center font-medium text-sm tab-active" id="tab-requests">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 3H4C3.44772 3 3 3.44772 3 4V11C3 11.5523 3.44772 12 4 12H9C9.55228 12 10 11.5523 10 11V4C10 3.44772 9.55228 3 9 3Z" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M20 3H15C14.4477 3 14 3.44772 14 4V7C14 7.55228 14.4477 8 15 8H20C20.5523 8 21 7.55228 21 7V4C21 3.44772 20.5523 3 20 3Z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        All Requests
+                    </a>
+                    <a href="#" onclick="showTab('analytics'); return false;"
+                       class="flex gap-2 p-3 rounded-xl items-center font-medium text-sm tab-inactive" id="tab-analytics">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 17V13M12 17V7M17 17V11M6 21H18C19.1046 21 20 20.1046 20 19V5C20 3.89543 19.1046 3 18 3H6C4.89543 3 4 3.89543 4 5V19C4 20.1046 4.89543 21 6 21Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        Analytics
+                    </a>
+                    <a href="#" onclick="showTab('users'); return false;"
+                       class="flex gap-2 p-3 rounded-xl items-center font-medium text-sm tab-inactive" id="tab-users">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M9 3.75C7.20507 3.75 5.75 5.20507 5.75 7C5.75 8.79493 7.20507 10.25 9 10.25C10.7949 10.25 12.25 8.79493 12.25 7C12.25 5.20507 10.7949 3.75 9 3.75Z" fill="currentColor"/>
+                        </svg>
+                        Users
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1">
+            <!-- All Requests Tab (Merged Overview + All Requests) -->
+            <div id="content-requests" class="content-tab">
+                <!-- Analytics / Stats Cards -->
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <div class="text-sm text-gray-600 mb-1">Total Requests</div>
+                        <div class="text-3xl font-semibold text-gray-900">205</div>
+                        <div class="text-xs text-green-600 mt-1">+12% this month</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <div class="text-sm text-gray-600 mb-1">Unassigned</div>
+                        <div class="text-3xl font-semibold text-orange-600">8</div>
+                        <div class="text-xs text-gray-500 mt-1">Needs attention</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <div class="text-sm text-gray-600 mb-1">Approval Rate</div>
+                        <div class="text-3xl font-semibold text-green-600">94%</div>
+                        <div class="text-xs text-gray-500 mt-1">This month</div>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <div class="text-sm text-gray-600 mb-1">Avg Response Time</div>
+                        <div class="text-3xl font-semibold text-gray-900">2.8</div>
+                        <div class="text-xs text-green-600 mt-1">days (↓18%)</div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white rounded-xl p-4 mb-4">
+                    <div class="flex gap-4 items-center mb-3">
+                        <div class="flex-1">
+                            <input type="text" id="globalFilter" placeholder="Search by patient, procedure, or PA ID..."
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none">
+                            <option value="">All Statuses</option>
+                            <option value="Submitted">Submitted</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Update Required">Update Required</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Denied">Denied</option>
+                        </select>
+                        <select id="assigneeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none">
+                            <option value="">All Users</option>
+                            <option value="Unassigned">Unassigned</option>
+                            <option value="Maria Garcia">Maria Garcia</option>
+                            <option value="James Chen">James Chen</option>
+                            <option value="Emily Rodriguez">Emily Rodriguez</option>
+                            <option value="David Kim">David Kim</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-4 items-center">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Procedure Date From</label>
+                            <input type="date" id="dateFromFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Procedure Date To</label>
+                            <input type="date" id="dateToFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <select id="payorFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none">
+                            <option value="">All Payors</option>
+                            <option value="Aetna">Aetna</option>
+                            <option value="UnitedHealthcare">UnitedHealthcare</option>
+                            <option value="Blue Cross">Blue Cross</option>
+                            <option value="Cigna">Cigna</option>
+                            <option value="Medicare">Medicare</option>
+                        </select>
+                        <button onclick="clearFilters()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm">
+                            Clear Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- All Requests Table with TanStack Table -->
+                <div class="bg-white rounded-xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="text-xl font-semibold text-gray-900">All PA Requests</h2>
+                        <p class="text-sm text-gray-600 mt-1">Complete list of all prior authorization requests</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <div id="requests-table"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="content-analytics" class="content-tab" style="display: none;">
+                <div>
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-2">Analytics & Performance</h2>
+                    <p class="text-gray-600 mb-6">System-wide metrics and team performance (based on actual API data)</p>
+
+                    <!-- Volume & Turnaround Overview -->
+                    <div class="grid grid-cols-3 gap-6 mb-6">
+                        <!-- Volume Breakdown -->
+                        <div class="metric-card col-span-2">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Request Volume by Status</h3>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Draft</div>
+                                    <div class="text-2xl font-semibold text-gray-900">15</div>
+                                    <div class="text-xs text-gray-500">Ready for review</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Under Review</div>
+                                    <div class="text-2xl font-semibold text-blue-600">28</div>
+                                    <div class="text-xs text-gray-500">With payer</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Approved</div>
+                                    <div class="text-2xl font-semibold text-green-600">142</div>
+                                    <div class="text-xs text-gray-500">This month</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Denied</div>
+                                    <div class="text-2xl font-semibold text-red-600">8</div>
+                                    <div class="text-xs text-gray-500">Needs appeal</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Update Required</div>
+                                    <div class="text-2xl font-semibold text-orange-600">12</div>
+                                    <div class="text-xs text-gray-500">Awaiting info</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-gray-600 mb-1">Total Active</div>
+                                    <div class="text-2xl font-semibold text-gray-900">63</div>
+                                    <div class="text-xs text-gray-500">In pipeline</div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                    <span>Resolution Rate</span>
+                                    <span class="font-medium text-gray-900">94.5%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-green-500" style="width: 94.5%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Turnaround Metrics -->
+                        <div class="metric-card">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Avg Turnaround Time</h3>
+                            <div class="text-center">
+                                <div class="text-4xl font-bold text-gray-900 mb-2">2.8</div>
+                                <div class="text-sm text-gray-600 mb-4">days to resolution</div>
+                                <div class="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full inline-block">
+                                    ↓ 18% vs last month
+                                </div>
+                            </div>
+                            <div class="mt-6 pt-4 border-t border-gray-200">
+                                <div class="text-sm text-gray-600 mb-2">Breakdown:</div>
+                                <div class="space-y-2 text-xs">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Draft → Submitted</span>
+                                        <span class="font-medium text-gray-900">0.5 days</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Under Review</span>
+                                        <span class="font-medium text-gray-900">1.8 days</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Final Decision</span>
+                                        <span class="font-medium text-gray-900">0.5 days</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Team Performance -->
+                    <div class="metric-card mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Team Performance</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 text-gray-700 text-sm">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">Team Member</th>
+                                        <th class="px-4 py-3 text-left font-medium">Role</th>
+                                        <th class="px-4 py-3 text-right font-medium">Requests Handled</th>
+                                        <th class="px-4 py-3 text-right font-medium">Avg Response Time</th>
+                                        <th class="px-4 py-3 text-right font-medium">Approval Rate</th>
+                                        <th class="px-4 py-3 text-right font-medium">Performance</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="user-avatar">MG</div>
+                                                <span class="text-sm font-medium text-gray-900">Maria Garcia</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600">User</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">47</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-900">2.1 days</td>
+                                        <td class="px-4 py-3 text-sm text-right">
+                                            <span class="text-green-600 font-medium">96.2%</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs font-medium">
+                                                Excellent
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="user-avatar">JC</div>
+                                                <span class="text-sm font-medium text-gray-900">James Chen</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600">User</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">52</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-900">2.5 days</td>
+                                        <td class="px-4 py-3 text-sm text-right">
+                                            <span class="text-green-600 font-medium">94.8%</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs font-medium">
+                                                Excellent
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="user-avatar">ER</div>
+                                                <span class="text-sm font-medium text-gray-900">Emily Rodriguez</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600">User</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">38</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-900">3.2 days</td>
+                                        <td class="px-4 py-3 text-sm text-right">
+                                            <span class="text-yellow-600 font-medium">89.5%</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-yellow-100 text-yellow-700 text-xs font-medium">
+                                                Good
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="user-avatar">DK</div>
+                                                <span class="text-sm font-medium text-gray-900">David Kim</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-600">User</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-gray-900">28</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-900">2.8 days</td>
+                                        <td class="px-4 py-3 text-sm text-right">
+                                            <span class="text-green-600 font-medium">92.1%</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-md bg-green-100 text-green-700 text-xs font-medium">
+                                                Excellent
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200 grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div class="text-sm text-gray-600 mb-1">Team Total Requests</div>
+                                <div class="text-2xl font-semibold text-gray-900">165</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600 mb-1">Avg Resolution Time</div>
+                                <div class="text-2xl font-semibold text-gray-900">2.6 days</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600 mb-1">First-Try Approval Rate</div>
+                                <div class="text-2xl font-semibold text-green-600">93.7%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Workload Distribution -->
+                    <div class="metric-card">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Current Workload Distribution</h3>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-700">Maria Garcia</span>
+                                    <span class="font-medium text-gray-900">12 active</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-blue-500" style="width: 75%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-700">James Chen</span>
+                                    <span class="font-medium text-gray-900">15 active</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-blue-500" style="width: 94%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-700">Emily Rodriguez</span>
+                                    <span class="font-medium text-gray-900">8 active</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-blue-500" style="width: 50%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-gray-700">David Kim</span>
+                                    <span class="font-medium text-gray-900">6 active</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-blue-500" style="width: 38%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-600">
+                            <p><strong>8 requests</strong> are currently unassigned</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="content-users" class="content-tab" style="display: none;">
+                <div class="bg-white rounded-xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="text-xl font-semibold text-gray-900">User Management</h2>
+                        <p class="text-sm text-gray-600 mt-1">Manage team members and their permissions</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <div id="users-table"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment Modal -->
+    <div id="assignModal" class="modal">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Assign PA Request</h3>
+                    <p class="text-sm text-gray-600 mt-1" id="modalSubtitle">PA-7284 - Robert Martinez</p>
+                </div>
+                <button onclick="closeAssignModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 6L18 18M6 18L18 6"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assign To</label>
+                    <select id="assignUserSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select user...</option>
+                        <option value="maria">Maria Garcia</option>
+                        <option value="james">James Chen</option>
+                        <option value="emily">Emily Rodriguez</option>
+                        <option value="david">David Kim</option>
+                        <option value="sarah">Sarah Johnson</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assignment Category (Optional)</label>
+                    <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select category...</option>
+                        <option value="doctor">By Doctor</option>
+                        <option value="patient">By Patient</option>
+                        <option value="denial">By Denial Type</option>
+                        <option value="payor">By Payor</option>
+                        <option value="specialty">By Specialty</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                    <textarea class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows="3" placeholder="Add any notes about this assignment..."></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="confirmAssignment()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                    Assign Request
+                </button>
+                <button onclick="closeAssignModal()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="successToast" class="fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg" style="display: none; z-index: 2000;">
+        <div class="flex items-center gap-2">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span id="toastMessage">Request assigned successfully!</span>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            document.querySelectorAll('.content-tab').forEach(tab => {
+                tab.style.display = 'none';
+            });
+
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                tab.classList.remove('tab-active');
+                tab.classList.add('tab-inactive');
+            });
+
+            document.getElementById('content-' + tabName).style.display = 'block';
+
+            const activeTab = document.getElementById('tab-' + tabName);
+            activeTab.classList.remove('tab-inactive');
+            activeTab.classList.add('tab-active');
+        }
+
+        function openAssignModal(paId, patientName, currentAssignee = null) {
+            const modal = document.getElementById('assignModal');
+            const subtitle = document.getElementById('modalSubtitle');
+
+            subtitle.textContent = `${paId} - ${patientName}`;
+
+            if (currentAssignee) {
+                subtitle.textContent += ` (Currently: ${currentAssignee})`;
+            }
+
+            modal.classList.add('show');
+        }
+
+        function closeAssignModal() {
+            document.getElementById('assignModal').classList.remove('show');
+        }
+
+        function confirmAssignment() {
+            const selectedUser = document.getElementById('assignUserSelect').value;
+
+            if (!selectedUser) {
+                alert('Please select a user to assign');
+                return;
+            }
+
+            closeAssignModal();
+            showToast('Request assigned successfully!');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('successToast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+            toast.style.display = 'block';
+
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        window.onclick = function(event) {
+            const assignModal = document.getElementById('assignModal');
+
+            if (event.target === assignModal) {
+                closeAssignModal();
+            }
+        }
+
+        // Sample data for requests
+        const requestsData = [
+            { id: 'PA-7284', procedureDate: 'Feb 1, 2026', patient: 'Robert Martinez', mrn: '45782', procedure: 'Knee Arthroscopy', payor: 'Aetna', status: 'Submitted', assignedTo: 'Unassigned', daysInQueue: 2, dateStarted: 'Jan 30, 2026' },
+            { id: 'PA-7291', procedureDate: 'Feb 2, 2026', patient: 'Jennifer Wong', mrn: '45819', procedure: 'Spinal Fusion', payor: 'UnitedHealthcare', status: 'Under Review', assignedTo: 'Maria Garcia', daysInQueue: 1, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7298', procedureDate: 'Feb 3, 2026', patient: 'David Thompson', mrn: '45923', procedure: 'Hip Replacement', payor: 'Blue Cross', status: 'Update Required', assignedTo: 'James Chen', daysInQueue: 5, dateStarted: 'Jan 29, 2026' },
+            { id: 'PA-7305', procedureDate: 'Feb 4, 2026', patient: 'Lisa Anderson', mrn: '46012', procedure: 'MRI Brain', payor: 'Cigna', status: 'Approved', assignedTo: 'Emily Rodriguez', daysInQueue: 3, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7312', procedureDate: 'Feb 2, 2026', patient: 'Michael Brown', mrn: '46087', procedure: 'Cardiac Catheterization', payor: 'Medicare', status: 'Submitted', assignedTo: 'Unassigned', daysInQueue: 1, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7319', procedureDate: 'Feb 5, 2026', patient: 'Sarah Wilson', mrn: '46124', procedure: 'CT Scan', payor: 'Aetna', status: 'Under Review', assignedTo: 'Maria Garcia', daysInQueue: 2, dateStarted: 'Jan 31, 2026' },
+            { id: 'PA-7326', procedureDate: 'Feb 6, 2026', patient: 'John Davis', mrn: '46201', procedure: 'Physical Therapy', payor: 'Blue Cross', status: 'Approved', assignedTo: 'James Chen', daysInQueue: 4, dateStarted: 'Jan 30, 2026' },
+            { id: 'PA-7333', procedureDate: 'Feb 7, 2026', patient: 'Emma Garcia', mrn: '46289', procedure: 'Shoulder Surgery', payor: 'Cigna', status: 'Denied', assignedTo: 'Emily Rodriguez', daysInQueue: 6, dateStarted: 'Jan 28, 2026' },
+            { id: 'PA-7340', procedureDate: 'Feb 8, 2026', patient: 'Thomas Lee', mrn: '46367', procedure: 'Colonoscopy', payor: 'Aetna', status: 'Submitted', assignedTo: 'David Kim', daysInQueue: 1, dateStarted: 'Feb 2, 2026' },
+            { id: 'PA-7347', procedureDate: 'Feb 9, 2026', patient: 'Patricia Moore', mrn: '46445', procedure: 'Cataract Surgery', payor: 'Medicare', status: 'Approved', assignedTo: 'Maria Garcia', daysInQueue: 2, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7354', procedureDate: 'Feb 10, 2026', patient: 'James Taylor', mrn: '46523', procedure: 'Lumbar Discectomy', payor: 'UnitedHealthcare', status: 'Under Review', assignedTo: 'James Chen', daysInQueue: 3, dateStarted: 'Jan 31, 2026' },
+            { id: 'PA-7361', procedureDate: 'Feb 11, 2026', patient: 'Mary Johnson', mrn: '46601', procedure: 'Mammogram', payor: 'Blue Cross', status: 'Approved', assignedTo: 'Emily Rodriguez', daysInQueue: 1, dateStarted: 'Feb 2, 2026' },
+            { id: 'PA-7368', procedureDate: 'Feb 12, 2026', patient: 'Christopher White', mrn: '46679', procedure: 'Angioplasty', payor: 'Cigna', status: 'Submitted', assignedTo: 'Unassigned', daysInQueue: 2, dateStarted: 'Jan 31, 2026' },
+            { id: 'PA-7375', procedureDate: 'Feb 13, 2026', patient: 'Barbara Harris', mrn: '46757', procedure: 'Rotator Cuff Repair', payor: 'Aetna', status: 'Under Review', assignedTo: 'David Kim', daysInQueue: 4, dateStarted: 'Jan 30, 2026' },
+            { id: 'PA-7382', procedureDate: 'Feb 14, 2026', patient: 'Daniel Martin', mrn: '46835', procedure: 'Endoscopy', payor: 'Medicare', status: 'Update Required', assignedTo: 'Maria Garcia', daysInQueue: 5, dateStarted: 'Jan 29, 2026' },
+            { id: 'PA-7389', procedureDate: 'Feb 15, 2026', patient: 'Nancy Thompson', mrn: '46913', procedure: 'Hernia Repair', payor: 'UnitedHealthcare', status: 'Approved', assignedTo: 'James Chen', daysInQueue: 2, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7396', procedureDate: 'Feb 16, 2026', patient: 'Matthew Robinson', mrn: '46991', procedure: 'Carpal Tunnel Release', payor: 'Blue Cross', status: 'Submitted', assignedTo: 'Unassigned', daysInQueue: 1, dateStarted: 'Feb 2, 2026' },
+            { id: 'PA-7403', procedureDate: 'Feb 17, 2026', patient: 'Karen Clark', mrn: '47069', procedure: 'Knee Replacement', payor: 'Cigna', status: 'Denied', assignedTo: 'Emily Rodriguez', daysInQueue: 7, dateStarted: 'Jan 27, 2026' },
+            { id: 'PA-7410', procedureDate: 'Feb 18, 2026', patient: 'Steven Rodriguez', mrn: '47147', procedure: 'Appendectomy', payor: 'Aetna', status: 'Under Review', assignedTo: 'David Kim', daysInQueue: 3, dateStarted: 'Jan 31, 2026' },
+            { id: 'PA-7417', procedureDate: 'Feb 19, 2026', patient: 'Betty Lewis', mrn: '47225', procedure: 'Gallbladder Surgery', payor: 'Medicare', status: 'Approved', assignedTo: 'Maria Garcia', daysInQueue: 2, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7424', procedureDate: 'Feb 20, 2026', patient: 'Donald Walker', mrn: '47303', procedure: 'Prostate Biopsy', payor: 'UnitedHealthcare', status: 'Submitted', assignedTo: 'James Chen', daysInQueue: 1, dateStarted: 'Feb 2, 2026' },
+            { id: 'PA-7431', procedureDate: 'Feb 21, 2026', patient: 'Dorothy Hall', mrn: '47381', procedure: 'Hysterectomy', payor: 'Blue Cross', status: 'Under Review', assignedTo: 'Emily Rodriguez', daysInQueue: 4, dateStarted: 'Jan 30, 2026' },
+            { id: 'PA-7438', procedureDate: 'Feb 22, 2026', patient: 'Kenneth Allen', mrn: '47459', procedure: 'Tonsillectomy', payor: 'Cigna', status: 'Approved', assignedTo: 'David Kim', daysInQueue: 2, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7445', procedureDate: 'Feb 23, 2026', patient: 'Helen Young', mrn: '47537', procedure: 'Bunion Surgery', payor: 'Aetna', status: 'Update Required', assignedTo: 'Unassigned', daysInQueue: 6, dateStarted: 'Jan 28, 2026' },
+            { id: 'PA-7452', procedureDate: 'Feb 24, 2026', patient: 'Paul Hernandez', mrn: '47615', procedure: 'Achilles Tendon Repair', payor: 'Medicare', status: 'Submitted', assignedTo: 'Maria Garcia', daysInQueue: 1, dateStarted: 'Feb 2, 2026' },
+            { id: 'PA-7459', procedureDate: 'Feb 25, 2026', patient: 'Sandra King', mrn: '47693', procedure: 'Sinusitis Surgery', payor: 'UnitedHealthcare', status: 'Approved', assignedTo: 'James Chen', daysInQueue: 3, dateStarted: 'Jan 31, 2026' },
+            { id: 'PA-7466', procedureDate: 'Feb 26, 2026', patient: 'Ronald Wright', mrn: '47771', procedure: 'Varicose Vein Treatment', payor: 'Blue Cross', status: 'Under Review', assignedTo: 'Emily Rodriguez', daysInQueue: 2, dateStarted: 'Feb 1, 2026' },
+            { id: 'PA-7473', procedureDate: 'Feb 27, 2026', patient: 'Ashley Lopez', mrn: '47849', procedure: 'Breast Biopsy', payor: 'Cigna', status: 'Submitted', assignedTo: 'David Kim', daysInQueue: 1, dateStarted: 'Feb 2, 2026' },
+            { id: 'PA-7480', procedureDate: 'Feb 28, 2026', patient: 'Kevin Hill', mrn: '47927', procedure: 'Laser Eye Surgery', payor: 'Aetna', status: 'Denied', assignedTo: 'Unassigned', daysInQueue: 8, dateStarted: 'Jan 26, 2026' },
+            { id: 'PA-7487', procedureDate: 'Mar 1, 2026', patient: 'Kimberly Scott', mrn: '48005', procedure: 'Spinal Decompression', payor: 'Medicare', status: 'Under Review', assignedTo: 'Maria Garcia', daysInQueue: 4, dateStarted: 'Jan 30, 2026' },
+            { id: 'PA-7494', procedureDate: 'Mar 2, 2026', patient: 'Brian Green', mrn: '48083', procedure: 'Gastric Bypass', payor: 'UnitedHealthcare', status: 'Update Required', assignedTo: 'James Chen', daysInQueue: 5, dateStarted: 'Jan 29, 2026' }
+        ];
+
+        // Sample data for users
+        const usersData = [
+            { id: 1, name: 'Maria Garcia', email: 'maria.garcia@example.com', role: 'User', status: 'Active', activeRequests: 12, completedRequests: 47, approvalRate: '96.2%' },
+            { id: 2, name: 'James Chen', email: 'james.chen@example.com', role: 'User', status: 'Active', activeRequests: 15, completedRequests: 52, approvalRate: '94.8%' },
+            { id: 3, name: 'Emily Rodriguez', email: 'emily.rodriguez@example.com', role: 'User', status: 'Active', activeRequests: 8, completedRequests: 38, approvalRate: '89.5%' },
+            { id: 4, name: 'David Kim', email: 'david.kim@example.com', role: 'User', status: 'Active', activeRequests: 6, completedRequests: 28, approvalRate: '92.1%' },
+            { id: 5, name: 'Sarah Johnson', email: 'sarah.johnson@example.com', role: 'Admin', status: 'Active', activeRequests: 0, completedRequests: 156, approvalRate: '95.5%' },
+            { id: 6, name: 'Michael O\'Brien', email: 'michael.obrien@example.com', role: 'User', status: 'Active', activeRequests: 9, completedRequests: 34, approvalRate: '91.2%' },
+            { id: 7, name: 'Jennifer Davis', email: 'jennifer.davis@example.com', role: 'User', status: 'Active', activeRequests: 11, completedRequests: 43, approvalRate: '93.0%' },
+            { id: 8, name: 'Robert Wilson', email: 'robert.wilson@example.com', role: 'User', status: 'Active', activeRequests: 7, completedRequests: 31, approvalRate: '88.7%' },
+            { id: 9, name: 'Lisa Martinez', email: 'lisa.martinez@example.com', role: 'User', status: 'Inactive', activeRequests: 0, completedRequests: 67, approvalRate: '94.0%' },
+            { id: 10, name: 'William Anderson', email: 'william.anderson@example.com', role: 'User', status: 'Active', activeRequests: 13, completedRequests: 56, approvalRate: '97.3%' },
+            { id: 11, name: 'Amanda Taylor', email: 'amanda.taylor@example.com', role: 'User', status: 'Active', activeRequests: 5, completedRequests: 22, approvalRate: '90.9%' },
+            { id: 12, name: 'Christopher Moore', email: 'christopher.moore@example.com', role: 'Admin', status: 'Active', activeRequests: 2, completedRequests: 89, approvalRate: '96.6%' },
+            { id: 13, name: 'Jessica Thomas', email: 'jessica.thomas@example.com', role: 'User', status: 'Active', activeRequests: 10, completedRequests: 41, approvalRate: '92.7%' },
+            { id: 14, name: 'Matthew Jackson', email: 'matthew.jackson@example.com', role: 'User', status: 'Active', activeRequests: 4, completedRequests: 19, approvalRate: '89.5%' },
+            { id: 15, name: 'Ashley White', email: 'ashley.white@example.com', role: 'User', status: 'Inactive', activeRequests: 0, completedRequests: 45, approvalRate: '93.3%' },
+            { id: 16, name: 'Daniel Harris', email: 'daniel.harris@example.com', role: 'User', status: 'Active', activeRequests: 14, completedRequests: 60, approvalRate: '95.0%' },
+            { id: 17, name: 'Stephanie Martin', email: 'stephanie.martin@example.com', role: 'User', status: 'Active', activeRequests: 6, completedRequests: 27, approvalRate: '88.9%' },
+            { id: 18, name: 'Joshua Thompson', email: 'joshua.thompson@example.com', role: 'User', status: 'Active', activeRequests: 8, completedRequests: 35, approvalRate: '91.4%' },
+            { id: 19, name: 'Michelle Garcia', email: 'michelle.garcia@example.com', role: 'User', status: 'Active', activeRequests: 12, completedRequests: 48, approvalRate: '94.8%' },
+            { id: 20, name: 'Ryan Martinez', email: 'ryan.martinez@example.com', role: 'User', status: 'Active', activeRequests: 9, completedRequests: 39, approvalRate: '92.3%' }
+        ];
+
+        // Helper functions
+        function getStatusBadge(status) {
+            const statusClasses = {
+                'Submitted': 'status-submitted',
+                'Under Review': 'status-under-review',
+                'Approved': 'status-approved',
+                'Denied': 'status-denied',
+                'Update Required': 'status-pending-info',
+                'Draft': 'status-draft'
+            };
+            return `<span class="status-badge ${statusClasses[status] || 'status-draft'}">
+                <span class="w-2 h-2 rounded-full bg-current"></span>
+                ${status}
+            </span>`;
+        }
+
+        function getAssignedToDisplay(assignedTo) {
+            if (assignedTo === 'Unassigned') {
+                return `<span class="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-gray-100 text-sm text-gray-600">
+                    <span class="text-xs">⚠️</span>
+                    Unassigned
+                </span>`;
+            }
+            const initials = assignedTo.split(' ').map(n => n[0]).join('');
+            return `<div class="flex items-center gap-2">
+                <div class="user-avatar">${initials}</div>
+                <span class="text-sm text-gray-900">${assignedTo}</span>
+            </div>`;
+        }
+
+        // Table filtering and sorting state
+        let requestsFiltering = { global: '', status: '', assignedTo: '', payor: '', dateFrom: '', dateTo: '' };
+        let sortState = { column: null, direction: null }; // 'asc' or 'desc'
+
+        function parseDate(dateStr) {
+            // Convert "Feb 1, 2026" to Date object
+            return new Date(dateStr);
+        }
+
+        function clearFilters() {
+            requestsFiltering = { global: '', status: '', assignedTo: '', payor: '', dateFrom: '', dateTo: '' };
+            document.getElementById('globalFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('assigneeFilter').value = '';
+            document.getElementById('payorFilter').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+            renderRequestsTable();
+        }
+
+        function sortTable(column) {
+            if (sortState.column === column) {
+                // Toggle sort direction
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = 'asc';
+            }
+            renderRequestsTable();
+        }
+
+        function renderRequestsTable() {
+            // Filter data based on current filters
+            let filteredData = requestsData.filter(row => {
+                // Global search filter
+                if (requestsFiltering.global) {
+                    const search = requestsFiltering.global.toLowerCase();
+                    const matchesSearch =
+                        row.id.toLowerCase().includes(search) ||
+                        row.patient.toLowerCase().includes(search) ||
+                        row.procedure.toLowerCase().includes(search);
+                    if (!matchesSearch) return false;
+                }
+
+                // Status filter
+                if (requestsFiltering.status && row.status !== requestsFiltering.status) {
+                    return false;
+                }
+
+                // Assignee filter
+                if (requestsFiltering.assignedTo && row.assignedTo !== requestsFiltering.assignedTo) {
+                    return false;
+                }
+
+                // Payor filter
+                if (requestsFiltering.payor && row.payor !== requestsFiltering.payor) {
+                    return false;
+                }
+
+                // Date range filter
+                if (requestsFiltering.dateFrom || requestsFiltering.dateTo) {
+                    const procedureDate = parseDate(row.procedureDate);
+
+                    if (requestsFiltering.dateFrom) {
+                        const fromDate = new Date(requestsFiltering.dateFrom);
+                        if (procedureDate < fromDate) return false;
+                    }
+
+                    if (requestsFiltering.dateTo) {
+                        const toDate = new Date(requestsFiltering.dateTo);
+                        if (procedureDate > toDate) return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // Apply sorting
+            if (sortState.column) {
+                filteredData.sort((a, b) => {
+                    let aVal = a[sortState.column];
+                    let bVal = b[sortState.column];
+
+                    // Handle date sorting
+                    if (sortState.column === 'procedureDate' || sortState.column === 'dateStarted') {
+                        aVal = parseDate(aVal);
+                        bVal = parseDate(bVal);
+                    }
+
+                    // Handle numeric sorting
+                    if (sortState.column === 'daysInQueue') {
+                        aVal = parseInt(aVal);
+                        bVal = parseInt(bVal);
+                    }
+
+                    // String comparison
+                    if (aVal < bVal) return sortState.direction === 'asc' ? -1 : 1;
+                    if (aVal > bVal) return sortState.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            const tableContainer = document.getElementById('requests-table');
+            let html = '<table class="w-full"><thead class="bg-gray-50 text-gray-700 text-sm"><tr>';
+
+            const columns = [
+                { key: 'id', label: 'PA ID', sortable: true },
+                { key: 'procedureDate', label: 'Procedure Date', sortable: true },
+                { key: 'patient', label: 'Patient', sortable: true },
+                { key: 'procedure', label: 'Procedure Type', sortable: true },
+                { key: 'payor', label: 'Payor', sortable: true },
+                { key: 'status', label: 'Status', sortable: true },
+                { key: 'assignedTo', label: 'Assigned To', sortable: true },
+                { key: 'dateStarted', label: 'Date Started', sortable: true },
+                { key: 'daysInQueue', label: 'Days in Queue', sortable: true },
+                { key: 'actions', label: 'Actions', sortable: false }
+            ];
+
+            columns.forEach(col => {
+                const isSorted = sortState.column === col.key;
+                const sortIcon = isSorted
+                    ? (sortState.direction === 'asc' ? '↑' : '↓')
+                    : '';
+                const cursorClass = col.sortable ? 'cursor-pointer hover:bg-gray-100' : '';
+                const onClick = col.sortable ? `onclick="sortTable('${col.key}')"` : '';
+
+                html += `<th class="px-6 py-3 text-left font-medium ${cursorClass}" ${onClick}>
+                    ${col.label} ${sortIcon}
+                </th>`;
+            });
+
+            html += '</tr></thead><tbody class="divide-y divide-gray-200">';
+
+            filteredData.forEach(row => {
+                const isUnassigned = row.assignedTo === 'Unassigned';
+                const actionButton = isUnassigned
+                    ? `<button onclick="openAssignModal('${row.id}', '${row.patient}')" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Assign</button>`
+                    : `<button onclick="openAssignModal('${row.id}', '${row.patient}', '${row.assignedTo}')" class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50">Reassign</button>`;
+
+                html += `<tr class="border-b border-gray-100">
+                    <td class="px-6 py-4"><span class="text-sm font-medium text-gray-900">${row.id}</span></td>
+                    <td class="px-6 py-4"><span class="text-sm text-gray-900">${row.procedureDate}</span></td>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">${row.patient}</div>
+                        <div class="text-xs text-gray-500">MRN: ${row.mrn}</div>
+                    </td>
+                    <td class="px-6 py-4"><span class="text-sm text-gray-900">${row.procedure}</span></td>
+                    <td class="px-6 py-4"><span class="text-sm text-gray-700">${row.payor}</span></td>
+                    <td class="px-6 py-4">${getStatusBadge(row.status)}</td>
+                    <td class="px-6 py-4">${getAssignedToDisplay(row.assignedTo)}</td>
+                    <td class="px-6 py-4"><span class="text-sm text-gray-900">${row.dateStarted}</span></td>
+                    <td class="px-6 py-4"><span class="text-sm font-medium ${row.daysInQueue > 4 ? 'text-orange-600' : 'text-gray-900'}">${row.daysInQueue} days</span></td>
+                    <td class="px-6 py-4">${actionButton}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+
+            html += `<div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    Showing <span class="font-medium text-gray-900">${filteredData.length}</span> of <span class="font-medium text-gray-900">${requestsData.length}</span> results
+                </div>
+            </div>`;
+
+            tableContainer.innerHTML = html;
+        }
+
+        // Render Users Table
+        function renderUsersTable() {
+            const tableContainer = document.getElementById('users-table');
+            let html = '<table class="w-full"><thead class="bg-gray-50 text-gray-700 text-sm"><tr>';
+
+            html += `
+                <th class="px-6 py-3 text-left font-medium">Name</th>
+                <th class="px-6 py-3 text-left font-medium">Email</th>
+                <th class="px-6 py-3 text-left font-medium">Role</th>
+                <th class="px-6 py-3 text-left font-medium">Status</th>
+                <th class="px-6 py-3 text-left font-medium">Active Requests</th>
+                <th class="px-6 py-3 text-left font-medium">Completed</th>
+                <th class="px-6 py-3 text-left font-medium">Approval Rate</th>
+            `;
+
+            html += '</tr></thead><tbody class="divide-y divide-gray-200">';
+
+            usersData.forEach(user => {
+                const initials = user.name.split(' ').map(n => n[0]).join('');
+                const statusClass = user.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+
+                html += `<tr class="border-b border-gray-100">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <div class="user-avatar">${initials}</div>
+                            <span class="text-sm font-medium text-gray-900">${user.name}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4"><span class="text-sm text-gray-600">${user.email}</span></td>
+                    <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs font-medium">${user.role}</span></td>
+                    <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-1 rounded-md ${statusClass} text-xs font-medium">${user.status}</span></td>
+                    <td class="px-6 py-4"><span class="text-sm font-medium text-gray-900">${user.activeRequests}</span></td>
+                    <td class="px-6 py-4"><span class="text-sm text-gray-600">${user.completedRequests}</span></td>
+                    <td class="px-6 py-4"><span class="text-sm font-medium text-green-600">${user.approvalRate}</span></td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+
+            html += `<div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    Showing <span class="font-medium text-gray-900">${usersData.length}</span> users
+                </div>
+            </div>`;
+
+            tableContainer.innerHTML = html;
+        }
+
+        // Filter handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            renderRequestsTable();
+            renderUsersTable();
+
+            document.getElementById('globalFilter').addEventListener('input', (e) => {
+                requestsFiltering.global = e.target.value;
+                renderRequestsTable();
+            });
+
+            document.getElementById('statusFilter').addEventListener('change', (e) => {
+                requestsFiltering.status = e.target.value;
+                renderRequestsTable();
+            });
+
+            document.getElementById('assigneeFilter').addEventListener('change', (e) => {
+                requestsFiltering.assignedTo = e.target.value;
+                renderRequestsTable();
+            });
+
+            document.getElementById('payorFilter').addEventListener('change', (e) => {
+                requestsFiltering.payor = e.target.value;
+                renderRequestsTable();
+            });
+
+            document.getElementById('dateFromFilter').addEventListener('change', (e) => {
+                requestsFiltering.dateFrom = e.target.value;
+                renderRequestsTable();
+            });
+
+            document.getElementById('dateToFilter').addEventListener('change', (e) => {
+                requestsFiltering.dateTo = e.target.value;
+                renderRequestsTable();
+            });
+        });
+    </script>
+</body>
+</html>
